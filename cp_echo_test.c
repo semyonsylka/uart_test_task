@@ -31,8 +31,9 @@ static struct argp_option options[] =
     {"mode", 'm', "Mode", 0, "Server mode (only 'echo')"},
     {0}
 };
-// check for number method
-int isnumber(char * c)
+
+/// check for number method
+int isnumber(const char * c)
 {
     for (int i = 0; c[i] != 0; i++)
     {
@@ -52,8 +53,7 @@ parse_opt (int key, char* arg, struct argp_state *state)
         case 'b':
         if (isnumber(arg))
         {
-            arguments->baudrate = checkBaudrateOrFindNearest(atoi(arg));
-            
+            arguments->baudrate = check_baudrate_or_find_nearest(atoi(arg));            
         }
         else
         {
@@ -72,7 +72,7 @@ parse_opt (int key, char* arg, struct argp_state *state)
         case 'm':
         if (strcmp("echo", arg) == -1)
             arguments->mode = echo;
-        else
+        else // other modes will multiplexing here
             arguments->mode = echo;        
         break;
         default:
@@ -82,17 +82,18 @@ parse_opt (int key, char* arg, struct argp_state *state)
 }
 
 // define argp 
-static struct argp argp = {options, parse_opt, NULL, NULL};
+static const struct argp argp = {options, parse_opt, NULL, NULL};
 
 // define baudrates
-int possible_baudrates[] = {50, 75, 110, 134, 150, 200, 300, 600, 1200,
+const int possible_baudrates[] = {50, 75, 110, 134, 150, 200, 300, 600, 1200,
                             1200, 1800, 2400, 4800, 9600, 19200, 38400,
                             57600, 115200};
-int possible_baudrates_codes[] = {B50, B75, B110, B134, B150, B200, B300, B600, B1200,
+const int possible_baudrates_codes[] = {B50, B75, B110, B134, B150, B200, B300, B600, B1200,
                                   B1200, B1800, B2400, B4800, B9600, B19200, B38400,
                                   B57600, B115200};
-// method finds nearest or 
-int checkBaudrateOrFindNearest(int br)
+
+/// method finds nearest or exact baudrate
+int check_baudrate_or_find_nearest(int br)
 {
     int diff, min_diff, prev_diff, result;
     int br_count = sizeof(possible_baudrates)/sizeof(int);
@@ -108,7 +109,7 @@ int checkBaudrateOrFindNearest(int br)
     return result;
 }
 
-// echo mode method
+/// echo mode method
 int echo_mode(int fd)
 {
     // flag for termination
@@ -160,6 +161,47 @@ int echo_mode(int fd)
        return 0;
 }
 
+/*!
+    \brief Method configuring tty device
+    \param tty_fd - opened file descriptor of tty device
+    \param baudrate_code - termios-defined code for speed of connection
+    \param vmin - .c_cc[VMIN] value to set
+    \param vtime - .c_cc[VTIME] value to set
+    \return 0 if all OK, 1 - otherwise
+*/
+int configure_tty(int tty_fd, int baudrate_code, int vmin, int vtime)
+{
+        // check for tty
+    if (!isatty(tty_fd))
+    {
+        printf("Device not a tty!\n");
+        return 1;
+    }
+
+    struct termios tty;
+    // read existing settings
+    if (tcgetattr(tty_fd, &tty) != 0)
+    {
+        printf("Error %i when getting attributes: %s\n", errno, strerror(errno));
+        return 1;
+    }
+
+    // setting baudrates
+    cfsetispeed(&tty, baudrate_code);
+    cfsetospeed(&tty, baudrate_code);
+
+    tty.c_cc[VTIME] = vtime;
+    tty.c_cc[VMIN] = vmin;
+
+    // apply changes
+    if (tcsetattr(tty_fd, TCSANOW, &tty) != 0)
+    {
+        printf("Error %i when setting attributes: %s\n", errno, strerror(errno));
+        return 1;
+    }
+    return 0;
+}
+
 
 int main(int argc, char * argv[])
 {
@@ -185,40 +227,17 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    // check for tty
-    if (!isatty(uart_fd))
-    {
-        printf("Device not a tty!\n");
-        return 1;
-    }
-
-    struct termios tty;
-    // read existing settings
-    if (tcgetattr(uart_fd, &tty) != 0)
-    {
-        printf("Error %i when getting attributes: %s\n", errno, strerror(errno));
-        return 1;
-    }
-
-    // setting baudrates
-    cfsetispeed(&tty, args.baudrate);
-    cfsetospeed(&tty, args.baudrate);
-    // cfsetispeed(&tty, B1152000);
-    // cfsetospeed(&tty, B1152000);
-
-    //
-    tty.c_cc[VTIME] = 10;
-    tty.c_cc[VMIN] = 0;
-
-    // apply changes
-    if (tcsetattr(uart_fd, TCSANOW, &tty) != 0)
-    {
-        printf("Error %i when setting attributes: %s\n", errno, strerror(errno));
-        return 1;
-    }
-
-    // start the mode
+    // status of executed methods
     int err_code = 0;
+
+    err_code = configure_tty(uart_fd, args.baudrate, 0, 10);
+    if(err_code != 0)
+    {
+        // occurs some troubles while
+        return err_code;
+    }
+
+    // start the mode    
     switch (args.mode)
     {
     case echo:
