@@ -58,13 +58,13 @@ int trigger_mode(int uart_fd, int gpio_line_number,
   // setting gpio resources
   struct gpiod_chip *chip;
   struct gpiod_line *line;
-  struct gpiod_line_event *event;
+  struct gpiod_line_event event;
   struct timespec ts = {seconds_to_wait, 0};
   //message to uart
   char *msg = "Hello, from Rpi";
   
   int ret = 0;
-  ret = configure_gpio(line, chip, event, gpio_line_number);
+  ret = configure_gpio(&line, &chip, gpio_line_number);
   if (ret) {
     printf("Gpio configuring failed\n");
     return 1;
@@ -90,12 +90,8 @@ int trigger_mode(int uart_fd, int gpio_line_number,
         printf("Write to uart failed\n");
         break;
     }
-  }
-  ret = release_gpio(line, chip);
-  if (ret) {
-    printf("Release gpio resources failed\n");
-    return 1;
-  }
+  }  
+  release_gpio(&line, &chip);
   return 0;
 }
 #else

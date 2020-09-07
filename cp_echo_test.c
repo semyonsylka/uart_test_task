@@ -153,11 +153,6 @@ int main(int argc, char *argv[]) {
     return err_code;
   }
 
-  if (args.gpio_pin) {
-    // todo config by libgpiod
-
-  }
-
   // start the mode
   switch (args.mode) {
   case echo:

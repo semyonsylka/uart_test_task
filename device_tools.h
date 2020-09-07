@@ -24,14 +24,13 @@ int check_baudrate_or_find_nearest(int br);
 #include <gpiod.h>
 
 /// method opens chip and line (chipname hardcoded)
-int configure_gpio(struct gpiod_line *line,
-                   struct gpiod_chip *chip,
-                   struct gpiod_line_event *event,
+int configure_gpio(struct gpiod_line **line,
+                   struct gpiod_chip **chip,            
                    int line_number);
 
 /// method releases the gpio resources
-int release_gpio(struct gpiod_line *line,
-                 struct gpiod_chip *chip);
+void release_gpio(struct gpiod_line **line,
+                 struct gpiod_chip **chip);
 
 #endif
 

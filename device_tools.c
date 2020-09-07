@@ -45,41 +45,40 @@ int configure_tty(int tty_fd, int baudrate_code, int vmin, int vtime) {
 #ifdef LIB_GPIOD_
 #define CONSUMER "CONSUMER"
 /// configure gpio
-int configure_gpio(struct gpiod_line *line,
-                   struct gpiod_chip *chip,
-                   struct gpiod_line_event *event,
+int configure_gpio(struct gpiod_line **line,
+                   struct gpiod_chip **chip,                   
                    int line_number) {
   char *chipname = "gpiochip0";
   // open chip
-  chip = gpiod_chip_open_by_name(chipname);
-  if (!chip) {
+  *chip = gpiod_chip_open_by_name(chipname);
+  if (!*chip) {
     printf("Open chip failed\n");
     return 1;
   }
   // open line
-  line = gpiod_chip_get_line(chip, line_number);
-  if (!line) {
-    printf("Open line failed\n");
+  *line = gpiod_chip_get_line(*chip, line_number);
+  if (!*line) {
+    printf("Open %i line failed\n", line_number);
     return 1;
   } 
-  if (gpiod_line_request_input(line, CONSUMER) != 0) {
-    printf("Request input failed\n");
-  }
+  // if (gpiod_line_request_input(line, CONSUMER) != 0) {
+  //   printf("Request input failed\n");
+  // }
   // int val = gpiod_line_get_value(line);
   // printf("Line value is:%d\n", val);
   // set event
-  struct gpiod_line_event *event_ = gpiod_line_request_both_edges_events(line, CONSUMER);
-  if (!event) {
-    printf("Set event failed\n");
+  int event_set = gpiod_line_request_both_edges_events(*line, "line_ev_consumer");
+  if (event_set < 0) {
+    printf("Set %i line event failed\n", line_number);
     return 1;
   }
   return 0;
 }
 
-int release_gpio(struct gpiod_line *line,
-                 struct gpiod_chip *chip) {           
-  gpiod_line_release(line);
-  gpiod_chip_close(chip);  
+void release_gpio(struct gpiod_line **line,
+                 struct gpiod_chip **chip) {           
+  gpiod_line_release(*line);
+  gpiod_chip_close(*chip);  
 }
 
 #endif
